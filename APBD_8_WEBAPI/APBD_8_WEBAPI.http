@@ -1,0 +1,12 @@
+@APBD_8_WEBAPI_HostAddress = http://localhost:5141
+
+POST {{APBD_8_WEBAPI_HostAddress}}/api/clients
+Content-Type: application/json
+
+{
+  "firstName": "Aloizy",
+  "lastName": "Nowakowski",
+  "email": "ak.nowakow@gmail.com",
+  "telephone": "666666666",
+  "pesel": "69012812137"
+}
