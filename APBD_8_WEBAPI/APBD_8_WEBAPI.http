@@ -1,5 +1,8 @@
 @APBD_8_WEBAPI_HostAddress = http://localhost:5141
 
+PUT {{APBD_8_WEBAPI_HostAddress}}/api/clients/1/trips/6
+Accept: application/json
+
 POST {{APBD_8_WEBAPI_HostAddress}}/api/clients
 Content-Type: application/json
 
@@ -10,3 +13,4 @@ Content-Type: application/json
   "telephone": "666666666",
   "pesel": "69012812137"
 }
+

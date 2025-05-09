@@ -83,6 +83,7 @@ public class Client_TripController : ControllerBase
         await using var con = new SqlConnection("Data Source=db-mssql;Initial Catalog=2019SBD;Integrated Security=True;Trust Server Certificate=True");
         await using var com = new SqlCommand();
         com.Connection = con;
+        await con.OpenAsync(cancellationToken);
 
         if (string.IsNullOrWhiteSpace(client.FirstName) ||
             string.IsNullOrWhiteSpace(client.LastName) ||
@@ -102,8 +103,7 @@ public class Client_TripController : ControllerBase
         com.Parameters.AddWithValue("@Email", client.Email);
         com.Parameters.AddWithValue("@Telephone", client.Telephone);
         com.Parameters.AddWithValue("@Pesel", client.Pesel);
-
-        await con.OpenAsync(cancellationToken);
+        
         var pom = await com.ExecuteScalarAsync(cancellationToken);
         if (pom != DBNull.Value)
         {
@@ -115,5 +115,68 @@ public class Client_TripController : ControllerBase
         }
         
         return Created($"/api/clients/{client.IdClient}", client);
+    }
+    
+    //Ten endpoint przypisuje klienta do wskazanej wycieczki, sprawdzając na początku czy taki klient i taka wycieczka istnieją w bazie
+    //bieże również pod uwagę liczbę uczestników biorących udział w wycieczce i jeśli liczba przekracza dopuszczalną to nie zostanie dodany
+    //kolejny klient, po odpowiednim sprawdzeniu endpoint dodaje klienta do wycieczki.
+    [HttpPut("{IdClient}/trips/{IdTrip}")]
+    public async Task<IActionResult> AddClientToTripAsync(int IdClient, int IdTrip, CancellationToken cancellationToken)
+    {
+        await using var con = new SqlConnection("Data Source=db-mssql;Initial Catalog=2019SBD;Integrated Security=True;Trust Server Certificate=True");
+        await using var com = new SqlCommand();
+        com.Connection = con;
+        await con.OpenAsync(cancellationToken);
+        
+        //czy jest taki klient
+        var czy_klient_istnieje = new SqlCommand("SELECT 1 FROM Client WHERE IdClient = @IdClient;", con);
+        czy_klient_istnieje.Parameters.AddWithValue("@IdClient", IdClient);
+        if (await czy_klient_istnieje.ExecuteScalarAsync(cancellationToken) == null)
+        {
+            return NotFound("Nie ma w bazie klienta o takim id");
+        }
+        
+        //czy jest taka wycieczka
+        var czy_wycieczka_istnieje = new SqlCommand("SELECT 1 FROM Trip WHERE IdTrip = @IdTrip;", con);
+        czy_wycieczka_istnieje.Parameters.AddWithValue("@IdTrip", IdTrip);
+        if (await czy_wycieczka_istnieje.ExecuteScalarAsync(cancellationToken) == null)
+        {
+            return NotFound("Nie ma w bazie wycieczki o takim id");
+        }
+        
+        //czy jest taki klient juz na liscie wycieczki
+        var czy_zapisany= new SqlCommand("SELECT 1 FROM Client_Trip WHERE IdClient = @IdClient AND IdTrip = @IdTrip;", con);
+        czy_zapisany.Parameters.AddWithValue("@IdClient", IdClient);
+        czy_zapisany.Parameters.AddWithValue("@IdTrip", IdTrip);
+        if (await czy_zapisany.ExecuteScalarAsync(cancellationToken) != null)
+        {
+            return BadRequest("Klient jest już na liście wycieczkowiczów");
+        }
+        
+        //czy liczba osob zapisanych na wycieczke nie przekroczy max
+        var max_osob_dla_tej_wycieczki= new SqlCommand("SELECT MaxPeople FROM Trip WHERE IdTrip = @IdTrip;", con);
+        max_osob_dla_tej_wycieczki.Parameters.AddWithValue("@IdTrip", IdTrip);
+        int max_osob=(int)(await max_osob_dla_tej_wycieczki.ExecuteScalarAsync(cancellationToken));
+        
+        var aktualna_liczba_osob_wycieczka = new SqlCommand("SELECT COUNT(*) FROM Client_Trip WHERE IdTrip = @IdTrip;", con);
+        aktualna_liczba_osob_wycieczka.Parameters.AddWithValue("@IdTrip", IdTrip);
+        int aktualna_liczba=(int)(await aktualna_liczba_osob_wycieczka.ExecuteScalarAsync(cancellationToken));
+        
+        if(aktualna_liczba==max_osob)
+        {
+            return BadRequest("Nie dodam klienta, bo nie ma wolnych miejsc na wycieczce");
+        }
+        
+        //dodaje klienta 
+        var dodaj= new SqlCommand("INSERT INTO Client_Trip (IdClient, IdTrip, RegisteredAt) VALUES (@IdClient, @IdTrip, @RegisteredAt)", con);
+        dodaj.Parameters.AddWithValue("@IdClient", IdClient);
+        dodaj.Parameters.AddWithValue("@IdTrip", IdTrip);
+        string a = ""+DateTime.Today.Year+""+DateTime.Today.Month+""+DateTime.Today.Day;
+        int b = int.Parse(a);
+        dodaj.Parameters.AddWithValue("@RegisteredAt",b);
+        
+        await dodaj.ExecuteScalarAsync(cancellationToken);
+        
+        return Ok("Pomyślnie dodano klienta do wycieczki");
     }
 }
