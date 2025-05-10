@@ -1,5 +1,8 @@
 @APBD_8_WEBAPI_HostAddress = http://localhost:5141
 
+DELETE {{APBD_8_WEBAPI_HostAddress}}/api/clients/1/trips/6
+Accept: application/json
+
 PUT {{APBD_8_WEBAPI_HostAddress}}/api/clients/1/trips/6
 Accept: application/json
 

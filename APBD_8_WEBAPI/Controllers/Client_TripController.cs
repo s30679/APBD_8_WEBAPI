@@ -179,4 +179,29 @@ public class Client_TripController : ControllerBase
         
         return Ok("Pomyślnie dodano klienta do wycieczki");
     }
+
+    //Ten endpoint na podstawie danych podanych przez użytkownika usuwa rezerwację wycieczki przez klienta uprzednio sprawdzając czy taka istnieje
+    [HttpDelete("{IdClient}/trips/{IdTrip}")]
+    public async Task<IActionResult> DeleteClientFromTripAsync(int IdClient, int IdTrip, CancellationToken cancellationToken)
+    {
+        await using var con = new SqlConnection("Data Source=db-mssql;Initial Catalog=2019SBD;Integrated Security=True;Trust Server Certificate=True");
+        await using var com = new SqlCommand();
+        com.Connection = con;
+        await con.OpenAsync(cancellationToken);
+        
+        //czy istnieje taka rejestracja
+        var czy_rejestracja_istnieje = new SqlCommand("SELECT 1 FROM Client_Trip WHERE IdClient = @IdClient AND IdTrip = @IdTrip;", con);
+        czy_rejestracja_istnieje.Parameters.AddWithValue("@IdClient", IdClient);
+        czy_rejestracja_istnieje.Parameters.AddWithValue("@IdTrip", IdTrip);
+        if (await czy_rejestracja_istnieje.ExecuteScalarAsync(cancellationToken) == null)
+        {
+            return NotFound("Nie ma w bazie takiej rejestracji");
+        }
+        
+        var usun_rejestracje= new SqlCommand("DELETE FROM Client_Trip WHERE IdClient = @IdClient AND IdTrip = @IdTrip", con);
+        usun_rejestracje.Parameters.AddWithValue("@IdClient", IdClient);
+        usun_rejestracje.Parameters.AddWithValue("@IdTrip", IdTrip);
+        await usun_rejestracje.ExecuteScalarAsync(cancellationToken);
+        return Ok("Klient został usunięty z wycieczki");
+    }
 }
